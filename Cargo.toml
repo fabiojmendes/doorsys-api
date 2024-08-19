@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 rumqttc = { version = "0.24", features = ["url"] }
-doorsys-protocol = { path = "../protocol" }
+doorsys-protocol = { path = "../doorsys-protocol" }
 anyhow = "1.0"
 tokio = { version = "1.0", features = ["full"] }
 axum = { version = "0.7", features = ["macros", "json"] }
@@ -27,3 +27,6 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing = "0.1"
 rand = "0.8"
 bincode = "2.0.0-rc.3"
+
+[build-dependencies]
+built = { version = "0.7", features = ["git2", "semver"] }
