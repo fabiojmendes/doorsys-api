@@ -40,7 +40,7 @@ jobs:
           export CARGO_VERSION=v$(awk '/^version/ {print $3}' Cargo.toml | head -1 | tr -d '"')
           export GIT_VERSION=${{github.ref_name}}
           echo "$CARGO_VERSION and $GIT_VERSION"
-          if [[ "v${CARGO_VERSION}" != "$GIT_VERSION"]]; then
+          if [[ "${CARGO_VERSION}" != "$GIT_VERSION" ]]; then
             exit 1
           fi
 
