@@ -416,6 +416,7 @@ dependencies = [
 [[package]]
 name = "doorsys-protocol"
 version = "0.1.0"
+source = "git+https://github.com/fabiojmendes/doorsys-protocol.git?tag=v0.1.0#83931fc5c07e9b1d912abd21a317845a89b008a7"
 dependencies = [
  "bincode",
 ]
