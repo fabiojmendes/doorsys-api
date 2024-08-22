@@ -1,6 +1,7 @@
 FROM rust:bookworm AS builder
 WORKDIR /usr/src/doorsys-api
 COPY . .
+RUN ls -la
 RUN cargo install --path .
 
 FROM debian:bookworm-slim
