@@ -77,6 +77,10 @@ pub async fn start(pool: PgPool, mqtt_url: &str) -> anyhow::Result<AsyncClient> 
                     }
                 }
                 Err(rumqttc::ConnectionError::Io(e)) => {
+                    tracing::error!("Connection error {:?}", e);
+                    time::sleep(Duration::from_secs(5)).await;
+                }
+                Err(rumqttc::ConnectionError::ConnectionRefused(e)) => {
                     tracing::error!("Connection refused {:?}", e);
                     time::sleep(Duration::from_secs(5)).await;
                 }
