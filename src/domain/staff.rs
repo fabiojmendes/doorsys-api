@@ -17,6 +17,7 @@ pub struct Staff {
     pub fob: Option<i32>,
     pub active: bool,
     pub created: DateTime<Utc>,
+    pub deleted: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -83,6 +84,16 @@ impl StaffRepository {
         .await
     }
 
+    pub async fn delete(&self, id: i64) -> Result<Staff, sqlx::Error> {
+        sqlx::query_as!(
+            Staff,
+            r#"update staff set active = false, deleted = now() where id = $1 returning *"#,
+            id,
+        )
+        .fetch_one(&self.pool)
+        .await
+    }
+
     pub async fn bulk_update_status(
         &self,
         customer_id: i64,
@@ -101,7 +112,7 @@ impl StaffRepository {
     pub async fn fetch_all(&self, customer_id: i64) -> Result<Vec<Staff>, sqlx::Error> {
         sqlx::query_as!(
             Staff,
-            r#"select * from staff where customer_id = $1 order by name"#,
+            r#"select * from staff where customer_id = $1 and deleted is null order by name"#,
             customer_id
         )
         .fetch_all(&self.pool)
@@ -175,5 +186,11 @@ impl StaffService {
                 .await?;
         }
         Ok(())
+    }
+
+    pub(crate) async fn delete(&self, id: i64) -> anyhow::Result<Staff> {
+        let staff = self.staff_repo.delete(id).await?;
+        self.send_mqtt_message(&staff).await?;
+        Ok(staff)
     }
 }

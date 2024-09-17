@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select * from staff where customer_id = $1 order by name",
+  "query": "select * from staff where customer_id = $1 and deleted is null order by name",
   "describe": {
     "columns": [
       {
@@ -42,6 +42,11 @@
         "ordinal": 7,
         "name": "created",
         "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 8,
+        "name": "deleted",
+        "type_info": "Timestamptz"
       }
     ],
     "parameters": {
@@ -57,8 +62,9 @@
       false,
       true,
       false,
-      false
+      false,
+      true
     ]
   },
-  "hash": "faed06372b10d192ca411c3c6dd481b8d5dc8927443e0124b23a71cb998fec11"
+  "hash": "13fc668d7d37ef07b3d40ecd1953e6f492f09a92881280f6bb9933be3a155eea"
 }

@@ -22,12 +22,12 @@ where
     ) -> fmt::Result {
         // Format values from the event's's metadata:
         let metadata = event.metadata();
-        let priority = match metadata.level() {
-            &Level::TRACE => 7,
-            &Level::DEBUG => 7,
-            &Level::INFO => 6,
-            &Level::WARN => 4,
-            &Level::ERROR => 3,
+        let priority = match *metadata.level() {
+            Level::TRACE => 7,
+            Level::DEBUG => 7,
+            Level::INFO => 6,
+            Level::WARN => 4,
+            Level::ERROR => 3,
         };
         write!(
             &mut writer,

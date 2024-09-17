@@ -145,7 +145,9 @@ pub async fn serve(pool: PgPool, mqtt_client: AsyncClient) -> anyhow::Result<()>
         .route("/staff", post(staff_handler::create))
         .route(
             "/staff/:id",
-            get(staff_handler::get).put(staff_handler::update),
+            get(staff_handler::get)
+                .put(staff_handler::update)
+                .delete(staff_handler::delete),
         )
         .route("/staff/:id/pin", post(staff_handler::update_pin))
         .route("/staff/:id/status", put(staff_handler::update_status))

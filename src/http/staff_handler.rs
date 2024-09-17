@@ -109,6 +109,14 @@ pub async fn update_status(
     Ok(Json(staff))
 }
 
+pub async fn delete(
+    State(staff_service): State<StaffService>,
+    Path(id): Path<i64>,
+) -> HttpResult<Json<Staff>> {
+    let staff = staff_service.delete(id).await?;
+    Ok(Json(staff))
+}
+
 pub async fn bulk_load_codes(
     State(staff_repo): State<StaffRepository>,
     State(mqtt_client): State<AsyncClient>,

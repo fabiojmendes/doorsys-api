@@ -42,6 +42,11 @@
         "ordinal": 7,
         "name": "created",
         "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 8,
+        "name": "deleted",
+        "type_info": "Timestamptz"
       }
     ],
     "parameters": {
@@ -57,7 +62,8 @@
       false,
       true,
       false,
-      false
+      false,
+      true
     ]
   },
   "hash": "5721d6a23bd4d3e835c0bb629e7b377775aec67f85b32a9a72fb07f94335b7c4"

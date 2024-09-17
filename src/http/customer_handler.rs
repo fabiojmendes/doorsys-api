@@ -39,9 +39,7 @@ pub async fn update_status(
     Json(active): Json<bool>,
 ) -> HttpResult<Json<Customer>> {
     let customer = customer_repo.update_status(id, active).await?;
-    if !active {
-        staff_service.bulk_update_status(id, active).await?;
-    }
+    staff_service.bulk_update_status(id, active).await?;
     Ok(Json(customer))
 }
 
