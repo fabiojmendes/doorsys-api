@@ -1,8 +1,5 @@
 use super::HttpResult;
-use crate::{
-    domain::staff::{NewStaff, Staff, StaffRepository, StaffService},
-    mqtt,
-};
+use crate::domain::staff::{NewStaff, Staff, StaffRepository, StaffService};
 use axum::{
     extract::{Path, State},
     Json,
@@ -25,14 +22,14 @@ pub async fn create(
     let staff = staff_repo.create(&new_staff, pin).await?;
 
     let user_add = UserAction::Add(pin);
-    let payload = bincode::encode_to_vec(user_add, mqtt::BINCODE_CONFIG)?;
+    let payload = postcard::to_allocvec(&user_add)?;
     mqtt_client
         .publish("doorsys/user", QoS::AtLeastOnce, false, payload)
         .await?;
 
     if let Some(fob) = staff.fob {
         let user_add = UserAction::Add(fob);
-        let payload = bincode::encode_to_vec(user_add, mqtt::BINCODE_CONFIG)?;
+        let payload = postcard::to_allocvec(&user_add)?;
         mqtt_client
             .publish("doorsys/user", QoS::AtLeastOnce, false, payload)
             .await?;
@@ -71,7 +68,7 @@ pub async fn update(
         (Some(fob), None) => Some(UserAction::Del(fob)),
         _ => None,
     } {
-        let payload = bincode::encode_to_vec(action, mqtt::BINCODE_CONFIG)?;
+        let payload = postcard::to_allocvec(&action)?;
         mqtt_client
             .publish("doorsys/user", QoS::AtLeastOnce, false, payload)
             .await?;
@@ -93,7 +90,7 @@ pub async fn update_pin(
         old: old_pin,
         new: new_pin,
     };
-    let payload = bincode::encode_to_vec(replace_pin, mqtt::BINCODE_CONFIG)?;
+    let payload = postcard::to_allocvec(&replace_pin)?;
     mqtt_client
         .publish("doorsys/user", QoS::AtLeastOnce, false, payload)
         .await?;
@@ -124,7 +121,7 @@ pub async fn bulk_load_codes(
     let codes = staff_repo.fetch_all_codes().await?;
     tracing::info!("Executing bulk load of {} codes", codes.len());
     let bulk_action = UserAction::Bulk(codes.into_iter().flatten().collect());
-    let payload = bincode::encode_to_vec(bulk_action, mqtt::BINCODE_CONFIG)?;
+    let payload = postcard::to_allocvec(&bulk_action)?;
     mqtt_client
         .publish("doorsys/user", QoS::AtLeastOnce, false, payload)
         .await?;

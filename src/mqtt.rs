@@ -1,14 +1,11 @@
 use std::time::Duration;
 
-use bincode::config::Configuration;
 use doorsys_protocol::Audit;
 use rumqttc::{AsyncClient, Event, MqttOptions, Packet, QoS};
 use sqlx::PgPool;
 use tokio::{task, time};
 
 use crate::domain::entry_log::EntryLogRepository;
-
-pub const BINCODE_CONFIG: Configuration = bincode::config::standard();
 
 pub async fn start(pool: PgPool, mqtt_url: &str) -> anyhow::Result<AsyncClient> {
     let mqtt_opts = MqttOptions::parse_url(mqtt_url)?;
@@ -28,12 +25,12 @@ pub async fn start(pool: PgPool, mqtt_url: &str) -> anyhow::Result<AsyncClient> 
                         p.qos,
                         p.payload.len()
                     );
-                    match bincode::decode_from_slice::<Audit, _>(&p.payload, BINCODE_CONFIG) {
-                        Ok((audit, len)) => {
+                    match postcard::from_bytes::<Audit>(&p.payload) {
+                        Ok(audit) => {
                             let net_id = p.topic.split('/').nth(2);
                             tracing::info!(
                                 "Audit({}) [{:?}]: {:?}",
-                                len,
+                                p.payload.len(),
                                 net_id.unwrap_or(""),
                                 audit
                             );

@@ -1,17 +1,17 @@
 [package]
 name = "doorsys-api"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-doorsys-protocol = { git = "https://github.com/fabiojmendes/doorsys-protocol.git", tag = "v0.1.0" }
+doorsys-protocol = { git = "https://github.com/fabiojmendes/doorsys-protocol.git", tag = "v0.2.0" }
 rumqttc = { version = "0.24", features = ["url"] }
 anyhow = "1.0"
 tokio = { version = "1.0", features = ["full"] }
 axum = { version = "0.7", features = ["macros", "json"] }
-tower-http = { version = "0.5", features = ["cors", "trace"] }
+tower-http = { version = "0.6", features = ["cors", "trace"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 chrono = { version = "0.4", features = ["serde"] }
@@ -26,7 +26,7 @@ sqlx = { version = "0.8", features = [
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing = "0.1"
 rand = "0.8"
-bincode = "2.0.0-rc.3"
+postcard = { version = "1", features = ["alloc"] }
 
 [build-dependencies]
 built = { version = "0.7", features = ["git2", "semver"] }

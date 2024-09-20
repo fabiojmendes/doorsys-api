@@ -4,8 +4,6 @@ use rumqttc::{AsyncClient, QoS};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
-use crate::mqtt;
-
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Staff {
@@ -170,7 +168,7 @@ impl StaffService {
             false => UserAction::Del(staff.pin),
         };
 
-        let payload = bincode::encode_to_vec(pin_action, mqtt::BINCODE_CONFIG)?;
+        let payload = postcard::to_allocvec(&pin_action)?;
         self.mqtt_client
             .publish("doorsys/user", QoS::AtLeastOnce, false, payload)
             .await?;
@@ -180,7 +178,7 @@ impl StaffService {
                 true => UserAction::Add(fob),
                 false => UserAction::Del(fob),
             };
-            let payload = bincode::encode_to_vec(fob_action, mqtt::BINCODE_CONFIG)?;
+            let payload = postcard::to_allocvec(&fob_action)?;
             self.mqtt_client
                 .publish("doorsys/user", QoS::AtLeastOnce, false, payload)
                 .await?;
