@@ -99,7 +99,7 @@ impl StaffRepository {
     ) -> Result<Vec<Staff>, sqlx::Error> {
         sqlx::query_as!(
             Staff,
-            r#"update staff set active = $1 where customer_id = $2 returning *"#,
+            r#"update staff set active = $1 where customer_id = $2 and deleted is null returning *"#,
             active,
             customer_id,
         )
