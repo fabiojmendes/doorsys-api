@@ -3,6 +3,8 @@ mod http;
 mod logging;
 mod mqtt;
 
+use domain::entry_log::EntryLogRepository;
+use rumqttc::{AsyncClient, MqttOptions};
 use sqlx::postgres::PgPoolOptions;
 use std::env;
 
@@ -36,7 +38,10 @@ async fn main() -> anyhow::Result<()> {
     sqlx::migrate!().run(&pool).await?;
 
     let mqtt_url = env::var("MQTT_URL")?;
-    let mqtt_client = mqtt::start(pool.clone(), &mqtt_url).await?;
+    let mqtt_opts = MqttOptions::parse_url(mqtt_url)?;
+    let entry_repo = EntryLogRepository { pool: pool.clone() };
+    let (mqtt_client, event_loop) = AsyncClient::new(mqtt_opts, 10);
+    mqtt::handle_messages(entry_repo, mqtt_client.clone(), event_loop).await;
 
     http::serve(pool, mqtt_client).await
 }

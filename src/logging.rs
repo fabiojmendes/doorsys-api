@@ -67,6 +67,8 @@ where
     }
 }
 
+/// If the env SYSLOG_FORMAT is set to 1, the service will prepend the
+/// priority level to the log message in the syslog format.
 pub fn init() {
     if let "1" = env::var("SYSLOG_FORMAT")
         .unwrap_or(String::from("0"))

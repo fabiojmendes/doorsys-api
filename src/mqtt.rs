@@ -1,23 +1,20 @@
 use std::time::Duration;
 
 use doorsys_protocol::Audit;
-use rumqttc::{AsyncClient, Event, MqttOptions, Packet, Publish, QoS};
-use sqlx::PgPool;
+use rumqttc::{AsyncClient, Event, EventLoop, Packet, Publish, QoS};
 use tokio::{task, time};
 
 use crate::domain::entry_log::EntryLogRepository;
 
-pub async fn start(pool: PgPool, mqtt_url: &str) -> anyhow::Result<AsyncClient> {
-    let mqtt_opts = MqttOptions::parse_url(mqtt_url)?;
-
-    let (client, mut connection) = AsyncClient::new(mqtt_opts, 10);
-    let cloned_client = client.clone();
-
+/// Spwan async task to handle incomming mqtt messages
+pub async fn handle_messages(
+    entry_repo: EntryLogRepository,
+    client: AsyncClient,
+    mut event_loop: EventLoop,
+) {
     task::spawn(async move {
-        let entry_repo = EntryLogRepository { pool };
-
         loop {
-            match connection.poll().await {
+            match event_loop.poll().await {
                 Ok(Event::Incoming(Packet::Publish(p))) => {
                     tracing::info!(
                         "topic: {}, qos: {:?}, size: {:?}",
@@ -51,8 +48,6 @@ pub async fn start(pool: PgPool, mqtt_url: &str) -> anyhow::Result<AsyncClient> 
             }
         }
     });
-
-    Ok(cloned_client)
 }
 
 async fn handle_audit_message(entry_repo: &EntryLogRepository, msg: Publish) {
