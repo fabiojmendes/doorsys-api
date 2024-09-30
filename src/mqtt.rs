@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use doorsys_protocol::Audit;
-use rumqttc::{AsyncClient, Event, MqttOptions, Packet, QoS};
+use rumqttc::{AsyncClient, Event, MqttOptions, Packet, Publish, QoS};
 use sqlx::PgPool;
 use tokio::{task, time};
 
@@ -25,51 +25,15 @@ pub async fn start(pool: PgPool, mqtt_url: &str) -> anyhow::Result<AsyncClient> 
                         p.qos,
                         p.payload.len()
                     );
-                    match postcard::from_bytes::<Audit>(&p.payload) {
-                        Ok(audit) => {
-                            let net_id = p.topic.split('/').nth(2);
-                            tracing::info!(
-                                "Audit({}) [{:?}]: {:?}",
-                                p.payload.len(),
-                                net_id.unwrap_or(""),
-                                audit
-                            );
-                            match entry_repo
-                                .create_with_code(
-                                    audit.code,
-                                    &audit.code_type.to_string(),
-                                    net_id,
-                                    audit.success,
-                                    &audit.timestamp.into(),
-                                )
-                                .await
-                            {
-                                Ok(log) => {
-                                    tracing::info!("Log created {:?}", log);
-                                }
-                                Err(sqlx::Error::Database(e)) => {
-                                    if let Some(c) = e.constraint() {
-                                        tracing::warn!("Duplicated entry log, skpping... {}", c);
-                                    } else {
-                                        tracing::error!("Database error creating entry log {}", e);
-                                    }
-                                }
-                                Err(e) => {
-                                    tracing::error!("Error creating entry log {}", e);
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            tracing::error!("Error decoding message: {}", e);
-                        }
-                    }
+
+                    // Only one type of message is handled right now so
+                    // no point in match on the topic
+
+                    handle_audit_message(&entry_repo, p).await;
                 }
                 Ok(Event::Incoming(Packet::ConnAck(_))) => {
                     tracing::info!("Connected to mqtt broker and subscribing to topics");
                     if let Err(e) = client.subscribe("doorsys/audit/+", QoS::AtLeastOnce).await {
-                        tracing::error!("Error subscribing to topic {}", e);
-                    }
-                    if let Err(e) = client.subscribe("doorsys/audit", QoS::AtLeastOnce).await {
                         tracing::error!("Error subscribing to topic {}", e);
                     }
                 }
@@ -89,4 +53,45 @@ pub async fn start(pool: PgPool, mqtt_url: &str) -> anyhow::Result<AsyncClient> 
     });
 
     Ok(cloned_client)
+}
+
+async fn handle_audit_message(entry_repo: &EntryLogRepository, msg: Publish) {
+    match postcard::from_bytes::<Audit>(&msg.payload) {
+        Ok(audit) => {
+            let net_id = msg.topic.split('/').nth(2);
+            tracing::info!(
+                "Audit({}) [{:?}]: {:?}",
+                msg.payload.len(),
+                net_id.unwrap_or(""),
+                audit
+            );
+            match entry_repo
+                .create_with_code(
+                    audit.code,
+                    &audit.code_type.to_string(),
+                    net_id,
+                    audit.success,
+                    &audit.timestamp.into(),
+                )
+                .await
+            {
+                Ok(log) => {
+                    tracing::info!("Log created {:?}", log);
+                }
+                Err(sqlx::Error::Database(e)) => {
+                    if let Some(c) = e.constraint() {
+                        tracing::warn!("Duplicated entry log, skpping... {}", c);
+                    } else {
+                        tracing::error!("Database error creating entry log {}", e);
+                    }
+                }
+                Err(e) => {
+                    tracing::error!("Error creating entry log {}", e);
+                }
+            }
+        }
+        Err(e) => {
+            tracing::error!("Error decoding message: {}", e);
+        }
+    }
 }
