@@ -7,10 +7,10 @@ This repo contains the api portion of the doorsys platform.
 Main roles:
 
 - It provides a rest api for [admin console](https://github.com/fabiojmendes/doorsys-web)
-for CRUD operations and viewing the audit logs
+  for CRUD operations and viewing the audit logs
 - Handles the communication with the mqtt broker for the
-[doorsys-firmware](https://github.com/fabiojmendes/doorsys-firmware) in order to
-add and remove users and persist audit logs
+  [doorsys-firmware](https://github.com/fabiojmendes/doorsys-firmware) in order to
+  add and remove users and persist audit logs
 
 ## Configuration
 
