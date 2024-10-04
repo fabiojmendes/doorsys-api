@@ -12,7 +12,7 @@ persistence, [sqlx](https://github.com/launchbadge/sqlx) and Postgres are used.
 
 Main roles:
 
-- It provides a rest api for
+- It provides a rest API for
   [admin console](https://github.com/fabiojmendes/doorsys-web) for CRUD
   operations and viewing the audit logs
 - Handles the communication with the MQTT broker for the
