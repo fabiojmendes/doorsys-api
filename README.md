@@ -8,7 +8,8 @@ platform. The communication with the Doorsys devices is carried through MQTT for
 reliability purposes. The At-Least-Once (QoS 1) semantics of the protocol is
 used to ensure messages are delivered even if components are offline. To deal
 with message duplication, the consumers of the messages are idempotent. For
-persistence, [sqlx](https://github.com/launchbadge/sqlx) and Postgres are used.
+persistence, [sqlx](https://github.com/launchbadge/sqlx) and PostgreSQL are
+used.
 
 Main roles:
 
