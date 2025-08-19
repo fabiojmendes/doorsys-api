@@ -37,7 +37,7 @@ RUST_LOG='doorsys_api=trace,tower_http=trace'
 
 ## WIP
 
-This is still working in progress. The API does very little in terms of user
+This is still a work in progress. The API does very little in terms of user
 input validation other than enforcing some DB constraints.
 
 Transactions are still not implemented, but there are use case for it in the
