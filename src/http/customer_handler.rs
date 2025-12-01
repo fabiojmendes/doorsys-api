@@ -7,9 +7,10 @@ use axum::{
     extract::{Path, Query, State},
     Json,
 };
+use schemars::JsonSchema;
 use serde::Deserialize;
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Filter {
     active: Option<bool>,
