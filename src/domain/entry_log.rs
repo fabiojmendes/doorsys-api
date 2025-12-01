@@ -1,6 +1,7 @@
 use std::ops::Range;
 
 use chrono::{DateTime, Utc};
+use schemars::JsonSchema;
 use serde::Serialize;
 use sqlx::PgPool;
 
@@ -17,7 +18,7 @@ pub struct EntryLog {
     pub created: DateTime<Utc>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct EntryLogDisplay {
     pub id: i64,

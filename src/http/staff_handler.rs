@@ -9,8 +9,8 @@ use rand::Rng;
 use rumqttc::{AsyncClient, QoS};
 
 fn generate_pin() -> i32 {
-    let mut rng = rand::thread_rng();
-    rng.gen_range(100000..=999999)
+    let mut rng = rand::rng();
+    rng.random_range(100000..=999999)
 }
 
 pub async fn create(

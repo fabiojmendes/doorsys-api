@@ -1,16 +1,22 @@
+use std::sync::Arc;
+
 use crate::domain::{
     customer::CustomerRepository,
     device::DeviceRepository,
     entry_log::EntryLogRepository,
     staff::{StaffRepository, StaffService},
 };
+use aide::{
+    axum::{routing::get, routing::post, routing::put, ApiRouter, IntoApiResponse},
+    openapi::{Info, OpenApi},
+    OperationOutput,
+};
 use anyhow::Context;
 use axum::{
     extract::{FromRef, State},
     http::StatusCode,
     response::IntoResponse,
-    routing::{get, post, put},
-    Json, Router,
+    Extension, Json,
 };
 use rumqttc::AsyncClient;
 use serde_json::json;
@@ -99,6 +105,10 @@ impl IntoResponse for AppError {
     }
 }
 
+impl OperationOutput for AppError {
+    type Inner = AppError;
+}
+
 impl<E> From<E> for AppError
 where
     E: Into<anyhow::Error>,
@@ -127,34 +137,45 @@ pub async fn serve(pool: PgPool, mqtt_client: AsyncClient) -> anyhow::Result<()>
         staff_service,
     };
 
-    let app = Router::new()
-        .route("/", get(health))
-        .route(
+    let mut api = OpenApi {
+        info: Info {
+            description: Some("an example API".to_string()),
+            ..Info::default()
+        },
+        ..OpenApi::default()
+    };
+
+    let app = ApiRouter::new()
+        .api_route("/", get(health))
+        .api_route("/openapi", get(serve_api))
+        .api_route(
             "/customers",
             get(customer_handler::list).post(customer_handler::create),
         )
-        .route(
-            "/customers/:id",
+        .api_route(
+            "/customers/{id}",
             get(customer_handler::get).put(customer_handler::update),
         )
-        .route(
-            "/customers/:id/status",
+        .api_route(
+            "/customers/{id}/status",
             put(customer_handler::update_status),
         )
-        .route("/customers/:id/staff", get(staff_handler::list))
-        .route("/staff", post(staff_handler::create))
-        .route(
-            "/staff/:id",
+        .api_route("/customers/{id}/staff", get(staff_handler::list))
+        .api_route("/staff", post(staff_handler::create))
+        .api_route(
+            "/staff/{id}",
             get(staff_handler::get)
                 .put(staff_handler::update)
                 .delete(staff_handler::delete),
         )
-        .route("/staff/:id/pin", post(staff_handler::update_pin))
-        .route("/staff/:id/status", put(staff_handler::update_status))
-        .route("/devices", get(device_handler::list))
-        .route("/entry_logs", get(entry_handler::list))
-        .route("/admin/bulk", post(staff_handler::bulk_load_codes))
+        .api_route("/staff/{id}/pin", post(staff_handler::update_pin))
+        .api_route("/staff/{id}/status", put(staff_handler::update_status))
+        .api_route("/devices", get(device_handler::list))
+        .api_route("/entry_logs", get(entry_handler::list))
+        .api_route("/admin/bulk", post(staff_handler::bulk_load_codes))
+        .finish_api(&mut api)
         .layer(TraceLayer::new_for_http())
+        .layer(Extension(Arc::new(api)))
         .with_state(app_state);
 
     let listerner = TcpListener::bind("0.0.0.0:3000").await?;
@@ -191,4 +212,11 @@ async fn shutdown_signal() {
 async fn health(State(pool): State<PgPool>) -> HttpResult<Json<serde_json::Value>> {
     sqlx::query("select 1").execute(&pool).await?;
     Ok(Json(json!({"ok": true})))
+}
+
+// Note that this clones the document on each request.
+// To be more efficient, we could wrap it into an Arc,
+// or even store it as a serialized string.
+async fn serve_api(Extension(api): Extension<Arc<OpenApi>>) -> impl IntoApiResponse {
+    Json(api)
 }
