@@ -19,10 +19,18 @@ pub enum ApiError {
 }
 
 impl ApiError {
-    pub fn from_err(err: impl std::fmt::Display, status: StatusCode) -> Self {
+    pub fn from_err<E: std::fmt::Display + std::fmt::Debug>(err: E, status: StatusCode) -> Self {
+        let msg = err.to_string();
+        
+        if status.is_server_error() {
+            tracing::error!("Internal Server Error: {:?}", err);
+        } else if status.is_client_error() {
+            tracing::warn!("Client Error ({}): {:?}", status, err);
+        }
+
         let error_response = ErrorResponse {
             success: false,
-            message: err.to_string(),
+            message: msg,
         };
         match status {
             StatusCode::NOT_FOUND => ApiError::NotFound(Json(error_response)),
@@ -44,7 +52,6 @@ impl ResponseError for ApiError {
 
 impl From<anyhow::Error> for ApiError {
     fn from(err: anyhow::Error) -> Self {
-        tracing::error!("Internal Server Error: {:?}", err);
         ApiError::from_err(err, StatusCode::INTERNAL_SERVER_ERROR)
     }
 }
@@ -53,24 +60,19 @@ impl From<sqlx::Error> for ApiError {
     fn from(err: sqlx::Error) -> Self {
         match err {
             sqlx::Error::RowNotFound => ApiError::from_err("Resource not found", StatusCode::NOT_FOUND),
-            _ => {
-                tracing::error!("Database Error: {:?}", err);
-                ApiError::from_err(err, StatusCode::INTERNAL_SERVER_ERROR)
-            }
+            _ => ApiError::from_err(err, StatusCode::INTERNAL_SERVER_ERROR),
         }
     }
 }
 
 impl From<postcard::Error> for ApiError {
     fn from(err: postcard::Error) -> Self {
-        tracing::error!("Serialization Error: {:?}", err);
         ApiError::from_err(err, StatusCode::INTERNAL_SERVER_ERROR)
     }
 }
 
 impl From<rumqttc::ClientError> for ApiError {
     fn from(err: rumqttc::ClientError) -> Self {
-        tracing::error!("MQTT Error: {:?}", err);
         ApiError::from_err(err, StatusCode::INTERNAL_SERVER_ERROR)
     }
 }
