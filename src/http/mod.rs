@@ -1,16 +1,17 @@
-use crate::domain::{
-    customer::CustomerRepository,
-    device::DeviceRepository,
-    entry_log::EntryLogRepository,
-    staff::{StaffRepository, StaffService},
+use crate::{
+    built_info,
+    domain::{
+        customer::CustomerRepository,
+        device::DeviceRepository,
+        entry_log::EntryLogRepository,
+        staff::{StaffRepository, StaffService},
+    },
 };
 use anyhow::Context;
 use customer_api::CustomerApi;
 use device_api::DeviceApi;
 use entry_api::EntryLogApi;
-use poem::{
-    listener::TcpListener, middleware::Tracing, web::Data, EndpointExt, Route, Server,
-};
+use poem::{listener::TcpListener, middleware::Tracing, web::Data, EndpointExt, Route, Server};
 use poem_openapi::{payload::Json as OpenApiJson, OpenApi, OpenApiService};
 use rumqttc::AsyncClient;
 use serde_json::json;
@@ -21,8 +22,8 @@ use tokio::signal::{self, unix::SignalKind};
 pub mod customer_api;
 pub mod device_api;
 pub mod entry_api;
-pub mod staff_api;
 pub mod error;
+pub mod staff_api;
 
 pub type HttpResult<T> = core::result::Result<T, error::ApiError>;
 
@@ -51,9 +52,16 @@ pub async fn serve(pool: PgPool, mqtt_client: AsyncClient) -> anyhow::Result<()>
     };
 
     let api_service = OpenApiService::new(
-        (HealthApi, CustomerApi, StaffApi, DeviceApi, EntryLogApi),
-        "Doorsys API",
-        "0.2.1",
+        (
+            // API Modules
+            HealthApi,
+            CustomerApi,
+            StaffApi,
+            DeviceApi,
+            EntryLogApi,
+        ),
+        built_info::PKG_NAME,
+        built_info::PKG_VERSION,
     )
     .server("http://localhost:3000");
 
@@ -100,3 +108,4 @@ async fn shutdown_signal() {
         _ = terminate => {},
     }
 }
+
