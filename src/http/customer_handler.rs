@@ -3,9 +3,9 @@ use crate::domain::{
     customer::{Customer, CustomerRepository, NewCustomer},
     staff::StaffService,
 };
-use axum::{
-    extract::{Path, Query, State},
-    Json,
+use poem::{
+    handler,
+    web::{Data, Json, Path, Query},
 };
 use serde::Deserialize;
 
@@ -15,16 +15,18 @@ pub struct Filter {
     active: Option<bool>,
 }
 
+#[handler]
 pub async fn create(
-    State(customer_repo): State<CustomerRepository>,
+    Data(customer_repo): Data<&CustomerRepository>,
     Json(customer_form): Json<NewCustomer>,
 ) -> HttpResult<Json<Customer>> {
     let customer = customer_repo.create(&customer_form).await?;
     Ok(Json(customer))
 }
 
+#[handler]
 pub async fn update(
-    State(customer_repo): State<CustomerRepository>,
+    Data(customer_repo): Data<&CustomerRepository>,
     Path(id): Path<i64>,
     Json(new_customer): Json<NewCustomer>,
 ) -> HttpResult<Json<Customer>> {
@@ -32,9 +34,10 @@ pub async fn update(
     Ok(Json(customer))
 }
 
+#[handler]
 pub async fn update_status(
-    State(customer_repo): State<CustomerRepository>,
-    State(staff_service): State<StaffService>,
+    Data(customer_repo): Data<&CustomerRepository>,
+    Data(staff_service): Data<&StaffService>,
     Path(id): Path<i64>,
     Json(active): Json<bool>,
 ) -> HttpResult<Json<Customer>> {
@@ -43,16 +46,18 @@ pub async fn update_status(
     Ok(Json(customer))
 }
 
+#[handler]
 pub async fn get(
-    State(customer_repo): State<CustomerRepository>,
+    Data(customer_repo): Data<&CustomerRepository>,
     Path(id): Path<i64>,
 ) -> HttpResult<Json<Customer>> {
     let customer = customer_repo.fetch_one(id).await?;
     Ok(Json(customer))
 }
 
+#[handler]
 pub async fn list(
-    State(customer_repo): State<CustomerRepository>,
+    Data(customer_repo): Data<&CustomerRepository>,
     Query(filter): Query<Filter>,
 ) -> HttpResult<Json<Vec<Customer>>> {
     let customers = customer_repo.fetch_all(filter.active).await?;

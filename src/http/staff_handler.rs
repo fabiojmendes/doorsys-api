@@ -1,21 +1,22 @@
 use super::HttpResult;
 use crate::domain::staff::{NewStaff, Staff, StaffRepository, StaffService};
-use axum::{
-    extract::{Path, State},
-    Json,
-};
 use doorsys_protocol::UserAction;
+use poem::{
+    handler,
+    web::{Data, Json, Path},
+};
 use rand::Rng;
 use rumqttc::{AsyncClient, QoS};
 
 fn generate_pin() -> i32 {
-    let mut rng = rand::thread_rng();
-    rng.gen_range(100000..=999999)
+    let mut rng = rand::rng();
+    rng.random_range(100000..=999999)
 }
 
+#[handler]
 pub async fn create(
-    State(staff_repo): State<StaffRepository>,
-    State(mqtt_client): State<AsyncClient>,
+    Data(staff_repo): Data<&StaffRepository>,
+    Data(mqtt_client): Data<&AsyncClient>,
     Json(new_staff): Json<NewStaff>,
 ) -> HttpResult<Json<Staff>> {
     let pin = generate_pin();
@@ -37,25 +38,28 @@ pub async fn create(
     Ok(Json(staff))
 }
 
+#[handler]
 pub async fn get(
-    State(staff_repo): State<StaffRepository>,
+    Data(staff_repo): Data<&StaffRepository>,
     Path(id): Path<i64>,
 ) -> HttpResult<Json<Staff>> {
     let staff = staff_repo.fetch_one(id).await?;
     Ok(Json(staff))
 }
 
+#[handler]
 pub async fn list(
-    State(staff_repo): State<StaffRepository>,
+    Data(staff_repo): Data<&StaffRepository>,
     Path(customer_id): Path<i64>,
 ) -> HttpResult<Json<Vec<Staff>>> {
     let staff_list = staff_repo.fetch_all(customer_id).await?;
     Ok(Json(staff_list))
 }
 
+#[handler]
 pub async fn update(
-    State(staff_repo): State<StaffRepository>,
-    State(mqtt_client): State<AsyncClient>,
+    Data(staff_repo): Data<&StaffRepository>,
+    Data(mqtt_client): Data<&AsyncClient>,
     Path(id): Path<i64>,
     Json(update_staff): Json<NewStaff>,
 ) -> HttpResult<Json<Staff>> {
@@ -76,9 +80,10 @@ pub async fn update(
     Ok(Json(staff))
 }
 
+#[handler]
 pub async fn update_pin(
-    State(staff_repo): State<StaffRepository>,
-    State(mqtt_client): State<AsyncClient>,
+    Data(staff_repo): Data<&StaffRepository>,
+    Data(mqtt_client): Data<&AsyncClient>,
     Path(id): Path<i64>,
 ) -> HttpResult<Json<Staff>> {
     let old_staff = staff_repo.fetch_one(id).await?;
@@ -97,8 +102,9 @@ pub async fn update_pin(
     Ok(Json(staff))
 }
 
+#[handler]
 pub async fn update_status(
-    State(staff_service): State<StaffService>,
+    Data(staff_service): Data<&StaffService>,
     Path(id): Path<i64>,
     Json(active): Json<bool>,
 ) -> HttpResult<Json<Staff>> {
@@ -106,17 +112,19 @@ pub async fn update_status(
     Ok(Json(staff))
 }
 
+#[handler]
 pub async fn delete(
-    State(staff_service): State<StaffService>,
+    Data(staff_service): Data<&StaffService>,
     Path(id): Path<i64>,
 ) -> HttpResult<Json<Staff>> {
     let staff = staff_service.delete(id).await?;
     Ok(Json(staff))
 }
 
+#[handler]
 pub async fn bulk_load_codes(
-    State(staff_repo): State<StaffRepository>,
-    State(mqtt_client): State<AsyncClient>,
+    Data(staff_repo): Data<&StaffRepository>,
+    Data(mqtt_client): Data<&AsyncClient>,
 ) -> HttpResult<()> {
     let codes = staff_repo.fetch_all_codes().await?;
     tracing::info!("Executing bulk load of {} codes", codes.len());
@@ -127,3 +135,4 @@ pub async fn bulk_load_codes(
         .await?;
     Ok(())
 }
+

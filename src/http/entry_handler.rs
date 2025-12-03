@@ -1,8 +1,8 @@
 use super::HttpResult;
 use crate::domain::entry_log::{EntryLogDisplay, EntryLogRepository};
-use axum::{
-    extract::{Query, State},
-    Json,
+use poem::{
+    handler,
+    web::{Data, Json, Query},
 };
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
@@ -16,9 +16,10 @@ pub struct Filter {
     customer_id: Option<i64>,
 }
 
+#[handler]
 pub async fn list(
-    State(entry_log_repo): State<EntryLogRepository>,
-    filter: Query<Filter>,
+    Data(entry_log_repo): Data<&EntryLogRepository>,
+    Query(filter): Query<Filter>,
 ) -> HttpResult<Json<Vec<EntryLogDisplay>>> {
     let date_range = filter.start_date..filter.end_date;
     tracing::debug!("Getting entry_logs for {:?}", filter);
