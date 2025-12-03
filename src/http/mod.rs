@@ -5,83 +5,38 @@ use crate::domain::{
     staff::{StaffRepository, StaffService},
 };
 use anyhow::Context;
+use customer_api::CustomerApi;
+use device_api::DeviceApi;
+use entry_api::EntryLogApi;
 use poem::{
-    error::ResponseError,
-    get, handler,
-    http::StatusCode,
-    listener::TcpListener,
-    middleware::Tracing,
-    post, put,
-    web::{Data, Json},
-    Body, EndpointExt, IntoResponse, Response, Route, Server,
+    listener::TcpListener, middleware::Tracing, web::Data, EndpointExt, Route, Server,
 };
+use poem_openapi::{payload::Json as OpenApiJson, OpenApi, OpenApiService};
 use rumqttc::AsyncClient;
 use serde_json::json;
 use sqlx::PgPool;
+use staff_api::StaffApi;
 use tokio::signal::{self, unix::SignalKind};
 
-pub mod customer_handler;
-pub mod device_handler;
-pub mod entry_handler;
-pub mod staff_handler;
+pub mod customer_api;
+pub mod device_api;
+pub mod entry_api;
+pub mod staff_api;
+pub mod error;
 
-pub type HttpResult<T> = core::result::Result<T, AppError>;
+pub type HttpResult<T> = core::result::Result<T, error::ApiError>;
 
-#[derive(Debug)]
-pub struct AppError(anyhow::Error);
+struct HealthApi;
 
-impl std::fmt::Display for AppError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl std::error::Error for AppError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        self.0.source()
-    }
-}
-
-impl ResponseError for AppError {
-    fn status(&self) -> StatusCode {
-        StatusCode::INTERNAL_SERVER_ERROR
-    }
-
-    fn as_response(&self) -> Response {
-        let payload = json!({
-            "code": 500,
-            "success": false,
-            "msg": format!("{}", self.0)
-        });
-        tracing::error!("request error: {:?}", self);
-        Response::builder()
-            .status(StatusCode::INTERNAL_SERVER_ERROR)
-            .body(Body::from_json(payload).unwrap())
-            .into_response()
-    }
-}
-
-impl From<anyhow::Error> for AppError {
-    fn from(err: anyhow::Error) -> Self {
-        Self(err)
-    }
-}
-
-impl From<sqlx::Error> for AppError {
-    fn from(err: sqlx::Error) -> Self {
-        Self(err.into())
-    }
-}
-
-impl From<postcard::Error> for AppError {
-    fn from(err: postcard::Error) -> Self {
-        Self(err.into())
-    }
-}
-
-impl From<rumqttc::ClientError> for AppError {
-    fn from(err: rumqttc::ClientError) -> Self {
-        Self(err.into())
+#[OpenApi]
+impl HealthApi {
+    #[oai(path = "/", method = "get")]
+    async fn health(
+        &self,
+        Data(pool): Data<&PgPool>,
+    ) -> HttpResult<OpenApiJson<serde_json::Value>> {
+        sqlx::query("select 1").execute(pool).await?;
+        Ok(OpenApiJson(json!({"ok": true})))
     }
 }
 
@@ -95,33 +50,18 @@ pub async fn serve(pool: PgPool, mqtt_client: AsyncClient) -> anyhow::Result<()>
         mqtt_client: mqtt_client.clone(),
     };
 
+    let api_service = OpenApiService::new(
+        (HealthApi, CustomerApi, StaffApi, DeviceApi, EntryLogApi),
+        "Doorsys API",
+        "0.2.1",
+    )
+    .server("http://localhost:3000");
+
+    let ui = api_service.swagger_ui();
+
     let app = Route::new()
-        .at("/", get(health))
-        .at(
-            "/customers",
-            get(customer_handler::list).post(customer_handler::create),
-        )
-        .at(
-            "/customers/:id",
-            get(customer_handler::get).put(customer_handler::update),
-        )
-        .at(
-            "/customers/:id/status",
-            put(customer_handler::update_status),
-        )
-        .at("/customers/:id/staff", get(staff_handler::list))
-        .at("/staff", post(staff_handler::create))
-        .at(
-            "/staff/:id",
-            get(staff_handler::get)
-                .put(staff_handler::update)
-                .delete(staff_handler::delete),
-        )
-        .at("/staff/:id/pin", post(staff_handler::update_pin))
-        .at("/staff/:id/status", put(staff_handler::update_status))
-        .at("/devices", get(device_handler::list))
-        .at("/entry_logs", get(entry_handler::list))
-        .at("/admin/bulk", post(staff_handler::bulk_load_codes))
+        .nest("/", api_service)
+        .nest("/docs", ui)
         .with(Tracing)
         .data(pool)
         .data(mqtt_client)
@@ -160,10 +100,3 @@ async fn shutdown_signal() {
         _ = terminate => {},
     }
 }
-
-#[handler]
-async fn health(Data(pool): Data<&PgPool>) -> HttpResult<Json<serde_json::Value>> {
-    sqlx::query("select 1").execute(pool).await?;
-    Ok(Json(json!({"ok": true})))
-}
-

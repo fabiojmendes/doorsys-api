@@ -1,8 +1,10 @@
+use poem_openapi::Object;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Object)]
 #[serde(rename_all = "camelCase")]
+#[oai(rename_all = "camelCase")]
 pub struct Customer {
     pub id: i64,
     pub name: String,
@@ -11,8 +13,9 @@ pub struct Customer {
     pub notes: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Object)]
 #[serde(rename_all = "camelCase")]
+#[oai(rename_all = "camelCase")]
 pub struct NewCustomer {
     pub name: String,
     pub email: String,

@@ -1,11 +1,13 @@
 use std::ops::Range;
 
 use chrono::{DateTime, Utc};
+use poem_openapi::Object;
 use serde::Serialize;
 use sqlx::PgPool;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Object)]
 #[serde(rename_all = "camelCase")]
+#[oai(rename_all = "camelCase")]
 pub struct EntryLog {
     pub id: i64,
     pub staff_id: Option<i64>,
@@ -17,8 +19,9 @@ pub struct EntryLog {
     pub created: DateTime<Utc>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Object)]
 #[serde(rename_all = "camelCase")]
+#[oai(rename_all = "camelCase")]
 pub struct EntryLogDisplay {
     pub id: i64,
     pub staff_id: Option<i64>,

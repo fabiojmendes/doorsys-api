@@ -1,8 +1,10 @@
+use poem_openapi::Object;
 use serde::Serialize;
 use sqlx::PgPool;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Object)]
 #[serde(rename_all = "camelCase")]
+#[oai(rename_all = "camelCase")]
 pub struct Device {
     pub id: i64,
     pub name: String,

@@ -1,11 +1,13 @@
 use chrono::{DateTime, Utc};
 use doorsys_protocol::UserAction;
+use poem_openapi::Object;
 use rumqttc::{AsyncClient, QoS};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Object)]
 #[serde(rename_all = "camelCase")]
+#[oai(rename_all = "camelCase")]
 pub struct Staff {
     pub id: i64,
     pub customer_id: i64,
@@ -18,8 +20,9 @@ pub struct Staff {
     pub deleted: Option<DateTime<Utc>>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Object)]
 #[serde(rename_all = "camelCase")]
+#[oai(rename_all = "camelCase")]
 pub struct NewStaff {
     pub customer_id: i64,
     pub name: String,
