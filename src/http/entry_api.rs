@@ -1,21 +1,17 @@
 use super::HttpResult;
 use crate::domain::entry_log::{EntryLogDisplay, EntryLogRepository};
-use poem::web::Data;
-use poem_openapi::{
-    param::Query,
-    payload::Json,
-    OpenApi,
-};
 use chrono::{DateTime, Utc};
+use poem_openapi::{param::Query, payload::Json, OpenApi};
 
-pub struct EntryLogApi;
+pub struct EntryLogApi {
+    pub entry_log_repo: EntryLogRepository,
+}
 
 #[OpenApi]
 impl EntryLogApi {
     #[oai(path = "/entry_logs", method = "get")]
     pub async fn list(
         &self,
-        Data(entry_log_repo): Data<&EntryLogRepository>,
         #[oai(name = "startDate")] start_date: Query<DateTime<Utc>>,
         #[oai(name = "endDate")] end_date: Query<DateTime<Utc>>,
         #[oai(name = "deviceId")] device_id: Query<Option<i64>>,
@@ -29,9 +25,11 @@ impl EntryLogApi {
             device_id.0,
             customer_id.0
         );
-        let entry_list = entry_log_repo
+        let entry_list = self
+            .entry_log_repo
             .fetch_all(date_range, device_id.0, customer_id.0)
             .await?;
         Ok(Json(entry_list))
     }
 }
+

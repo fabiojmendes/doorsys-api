@@ -55,15 +55,25 @@ pub async fn serve(pool: PgPool, mqtt_client: AsyncClient) -> anyhow::Result<()>
         (
             // API Modules
             HealthApi,
-            CustomerApi,
-            StaffApi,
-            DeviceApi,
-            EntryLogApi,
+            CustomerApi {
+                customer_repo: customer_repo.clone(),
+                staff_service: staff_service.clone(),
+            },
+            StaffApi {
+                staff_repo: staff_repo.clone(),
+                staff_service: staff_service.clone(),
+                mqtt_client: mqtt_client.clone(),
+            },
+            DeviceApi {
+                device_repo: device_repo.clone(),
+            },
+            EntryLogApi {
+                entry_log_repo: entry_log_repo.clone(),
+            },
         ),
         built_info::PKG_NAME,
         built_info::PKG_VERSION,
-    )
-    .server("http://localhost:3000");
+    );
 
     let ui = api_service.swagger_ui();
 
@@ -71,13 +81,7 @@ pub async fn serve(pool: PgPool, mqtt_client: AsyncClient) -> anyhow::Result<()>
         .nest("/", api_service)
         .nest("/docs", ui)
         .with(Tracing)
-        .data(pool)
-        .data(mqtt_client)
-        .data(customer_repo)
-        .data(staff_repo)
-        .data(entry_log_repo)
-        .data(device_repo)
-        .data(staff_service);
+        .data(pool);
 
     Server::new(TcpListener::bind("0.0.0.0:3000"))
         .run_with_graceful_shutdown(app, shutdown_signal(), None)
@@ -108,4 +112,3 @@ async fn shutdown_signal() {
         _ = terminate => {},
     }
 }
-
