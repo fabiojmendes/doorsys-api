@@ -72,7 +72,7 @@ impl CustomerRepository {
         })
     }
 
-    pub async fn update_status_with_conn(
+    pub async fn update_status(
         &self,
         executor: impl sqlx::PgExecutor<'_>,
         id: i64,
@@ -122,12 +122,12 @@ impl CustomerService {
         // 2. Perform DB operations with the transaction
         let customer = self
             .customer_repo
-            .update_status_with_conn(&mut *tx, id, active)
+            .update_status(&mut *tx, id, active)
             .await?;
         let staff_list = self
             .staff_service
             .staff_repo
-            .bulk_update_status_with_conn(&mut *tx, id, active)
+            .bulk_update_status(&mut *tx, id, active)
             .await?;
 
         // 3. Commit

@@ -127,7 +127,7 @@ impl StaffRepository {
         })
     }
 
-    pub async fn bulk_update_status_with_conn(
+    pub async fn bulk_update_status(
         &self,
         executor: impl sqlx::PgExecutor<'_>,
         customer_id: i64,
