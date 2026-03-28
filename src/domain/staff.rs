@@ -1,9 +1,15 @@
 use chrono::{DateTime, Utc};
 use doorsys_protocol::UserAction;
 use poem_openapi::Object;
+use rand::RngExt;
 use rumqttc::{AsyncClient, QoS};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
+
+fn generate_pin() -> i32 {
+    let mut rng = rand::rng();
+    rng.random_range(100000..=999999)
+}
 
 #[derive(Debug, Serialize, Object)]
 #[serde(rename_all = "camelCase")]
@@ -148,6 +154,61 @@ pub struct StaffService {
 }
 
 impl StaffService {
+    pub async fn create(&self, new_staff: &NewStaff) -> anyhow::Result<Staff> {
+        let pin = generate_pin();
+        let staff = self.staff_repo.create(new_staff, pin).await?;
+
+        let user_add = UserAction::Add(pin);
+        let payload = postcard::to_allocvec(&user_add)?;
+        self.mqtt_client
+            .publish("doorsys/user", QoS::AtLeastOnce, false, payload)
+            .await?;
+
+        if let Some(fob) = staff.fob {
+            let user_add = UserAction::Add(fob);
+            let payload = postcard::to_allocvec(&user_add)?;
+            self.mqtt_client
+                .publish("doorsys/user", QoS::AtLeastOnce, false, payload)
+                .await?;
+        }
+        Ok(staff)
+    }
+
+    pub async fn update(&self, id: i64, update_staff: &NewStaff) -> anyhow::Result<Staff> {
+        let old_staff = self.staff_repo.fetch_one(id).await?;
+        let staff = self.staff_repo.update(id, update_staff).await?;
+
+        if let Some(action) = match (old_staff.fob, staff.fob) {
+            (Some(old), Some(new)) if old != new => Some(UserAction::Replace { old, new }),
+            (None, Some(fob)) => Some(UserAction::Add(fob)),
+            (Some(fob), None) => Some(UserAction::Del(fob)),
+            _ => None,
+        } {
+            let payload = postcard::to_allocvec(&action)?;
+            self.mqtt_client
+                .publish("doorsys/user", QoS::AtLeastOnce, false, payload)
+                .await?;
+        }
+        Ok(staff)
+    }
+
+    pub async fn update_pin(&self, id: i64) -> anyhow::Result<Staff> {
+        let old_staff = self.staff_repo.fetch_one(id).await?;
+        let old_pin = old_staff.pin;
+        let new_pin = generate_pin();
+        let staff = self.staff_repo.update_pin(id, new_pin).await?;
+
+        let replace_pin = UserAction::Replace {
+            old: old_pin,
+            new: new_pin,
+        };
+        let payload = postcard::to_allocvec(&replace_pin)?;
+        self.mqtt_client
+            .publish("doorsys/user", QoS::AtLeastOnce, false, payload)
+            .await?;
+        Ok(staff)
+    }
+
     pub async fn bulk_update_status(&self, customer_id: i64, active: bool) -> anyhow::Result<()> {
         let staff_list = self
             .staff_repo
