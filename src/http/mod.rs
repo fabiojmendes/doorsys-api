@@ -1,7 +1,7 @@
 use crate::{
     built_info,
     domain::{
-        customer::CustomerRepository,
+        customer::{CustomerRepository, CustomerService},
         device::DeviceRepository,
         entry_log::EntryLogRepository,
         staff::{StaffRepository, StaffService},
@@ -51,13 +51,18 @@ pub async fn serve(pool: PgPool, mqtt_client: AsyncClient) -> anyhow::Result<()>
         mqtt_client: mqtt_client.clone(),
     };
 
+    let customer_service = CustomerService {
+        customer_repo: customer_repo.clone(),
+        staff_service: staff_service.clone(),
+    };
+
     let api_service = OpenApiService::new(
         (
             // API Modules
             HealthApi,
             CustomerApi {
                 customer_repo: customer_repo.clone(),
-                staff_service: staff_service.clone(),
+                customer_service: customer_service.clone(),
             },
             StaffApi {
                 staff_repo: staff_repo.clone(),

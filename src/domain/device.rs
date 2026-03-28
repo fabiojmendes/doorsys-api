@@ -1,3 +1,4 @@
+use crate::error::DomainResult;
 use poem_openapi::Object;
 use serde::Serialize;
 use sqlx::PgPool;
@@ -17,9 +18,10 @@ pub struct DeviceRepository {
 }
 
 impl DeviceRepository {
-    pub async fn fetch_all(&self) -> Result<Vec<Device>, sqlx::Error> {
+    pub async fn fetch_all(&self) -> DomainResult<Vec<Device>> {
         sqlx::query_as!(Device, r#"select * from device order by name"#)
             .fetch_all(&self.pool)
             .await
+            .map_err(Into::into)
     }
 }

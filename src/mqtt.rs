@@ -1,10 +1,10 @@
 use std::time::Duration;
 
+use crate::domain::entry_log::EntryLogRepository;
+use crate::error::DomainError;
 use doorsys_protocol::Audit;
 use rumqttc::{AsyncClient, Event, EventLoop, Packet, Publish, QoS};
 use tokio::{task, time};
-
-use crate::domain::entry_log::EntryLogRepository;
 
 /// Spwan async task to handle incomming mqtt messages
 pub async fn handle_messages(
@@ -73,9 +73,9 @@ async fn handle_audit_message(entry_repo: &EntryLogRepository, msg: Publish) {
                 Ok(log) => {
                     tracing::info!("Log created {:?}", log);
                 }
-                Err(sqlx::Error::Database(e)) => {
+                Err(DomainError::Database(sqlx::Error::Database(e))) => {
                     if let Some(c) = e.constraint() {
-                        tracing::warn!("Duplicated entry log, skpping... {}", c);
+                        tracing::warn!("Duplicated entry log, skipping... {}", c);
                     } else {
                         tracing::error!("Database error creating entry log {}", e);
                     }

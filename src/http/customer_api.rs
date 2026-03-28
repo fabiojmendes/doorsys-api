@@ -1,8 +1,5 @@
 use super::HttpResult;
-use crate::domain::{
-    customer::{Customer, CustomerRepository, NewCustomer},
-    staff::StaffService,
-};
+use crate::domain::customer::{Customer, CustomerRepository, CustomerService, NewCustomer};
 use poem_openapi::{
     param::{Path, Query},
     payload::Json,
@@ -11,7 +8,7 @@ use poem_openapi::{
 
 pub struct CustomerApi {
     pub customer_repo: CustomerRepository,
-    pub staff_service: StaffService,
+    pub customer_service: CustomerService,
 }
 
 #[OpenApi]
@@ -41,8 +38,7 @@ impl CustomerApi {
         Path(id): Path<i64>,
         Json(active): Json<bool>,
     ) -> HttpResult<Json<Customer>> {
-        let customer = self.customer_repo.update_status(id, active).await?;
-        self.staff_service.bulk_update_status(id, active).await?;
+        let customer = self.customer_service.update_status(id, active).await?;
         Ok(Json(customer))
     }
 

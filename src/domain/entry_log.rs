@@ -1,3 +1,4 @@
+use crate::error::DomainResult;
 use std::ops::Range;
 
 use chrono::{DateTime, Utc};
@@ -50,7 +51,7 @@ impl EntryLogRepository {
         net_id: Option<&str>,
         success: bool,
         event_date: &DateTime<Utc>,
-    ) -> Result<EntryLog, sqlx::Error> {
+    ) -> DomainResult<EntryLog> {
         sqlx::query_as!(
             EntryLog,
             r#"
@@ -70,6 +71,7 @@ impl EntryLogRepository {
         )
         .fetch_one(&self.pool)
         .await
+        .map_err(Into::into)
     }
 
     pub async fn fetch_all(
@@ -77,7 +79,7 @@ impl EntryLogRepository {
         date_range: Range<DateTime<Utc>>,
         device_id: Option<i64>,
         customer_id: Option<i64>,
-    ) -> Result<Vec<EntryLogDisplay>, sqlx::Error> {
+    ) -> DomainResult<Vec<EntryLogDisplay>> {
         sqlx::query_as!(
             EntryLogDisplay,
             r#"
@@ -110,5 +112,6 @@ impl EntryLogRepository {
         )
         .fetch_all(&self.pool)
         .await
+        .map_err(Into::into)
     }
 }

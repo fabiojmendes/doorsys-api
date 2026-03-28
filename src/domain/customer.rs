@@ -1,3 +1,5 @@
+use crate::domain::staff::StaffService;
+use crate::error::{DomainError, DomainResult};
 use poem_openapi::Object;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
@@ -28,13 +30,19 @@ pub struct CustomerRepository {
 }
 
 impl CustomerRepository {
-    pub async fn fetch_one(&self, id: i64) -> Result<Customer, sqlx::Error> {
-        sqlx::query_as!(Customer, r#"select * from customer where id = $1"#, id,)
+    pub async fn fetch_one(&self, id: i64) -> DomainResult<Customer> {
+        sqlx::query_as!(Customer, r#"select * from customer where id = $1"#, id)
             .fetch_one(&self.pool)
             .await
+            .map_err(|e| match e {
+                sqlx::Error::RowNotFound => {
+                    DomainError::NotFound(format!("Customer not found with id: {}", id))
+                }
+                _ => DomainError::from(e),
+            })
     }
 
-    pub async fn fetch_all(&self, active: Option<bool>) -> Result<Vec<Customer>, sqlx::Error> {
+    pub async fn fetch_all(&self, active: Option<bool>) -> DomainResult<Vec<Customer>> {
         sqlx::query_as!(
             Customer,
             r#"select * from customer where (active = $1 or $1 is null) order by name"#,
@@ -42,13 +50,10 @@ impl CustomerRepository {
         )
         .fetch_all(&self.pool)
         .await
+        .map_err(DomainError::from)
     }
 
-    pub async fn update(
-        &self,
-        id: i64,
-        new_customer: &NewCustomer,
-    ) -> Result<Customer, sqlx::Error> {
+    pub async fn update(&self, id: i64, new_customer: &NewCustomer) -> DomainResult<Customer> {
         sqlx::query_as!(
             Customer,
             r#"update customer set name = $1, email = $2, notes = $3 where id = $4 returning *"#,
@@ -59,9 +64,15 @@ impl CustomerRepository {
         )
         .fetch_one(&self.pool)
         .await
+        .map_err(|e| match e {
+            sqlx::Error::RowNotFound => {
+                DomainError::NotFound(format!("Customer not found with id: {}", id))
+            }
+            _ => DomainError::from(e),
+        })
     }
 
-    pub async fn update_status(&self, id: i64, active: bool) -> Result<Customer, sqlx::Error> {
+    pub async fn update_status(&self, id: i64, active: bool) -> DomainResult<Customer> {
         sqlx::query_as!(
             Customer,
             r#"update customer set active = $1 where id = $2 returning *"#,
@@ -70,9 +81,15 @@ impl CustomerRepository {
         )
         .fetch_one(&self.pool)
         .await
+        .map_err(|e| match e {
+            sqlx::Error::RowNotFound => {
+                DomainError::NotFound(format!("Customer not found with id: {}", id))
+            }
+            _ => DomainError::from(e),
+        })
     }
 
-    pub async fn create(&self, new_customer: &NewCustomer) -> Result<Customer, sqlx::Error> {
+    pub async fn create(&self, new_customer: &NewCustomer) -> DomainResult<Customer> {
         sqlx::query_as!(
             Customer,
             r#"insert into customer (name, email, notes) values ($1, $2, $3) returning *"#,
@@ -82,5 +99,20 @@ impl CustomerRepository {
         )
         .fetch_one(&self.pool)
         .await
+        .map_err(DomainError::from)
+    }
+}
+
+#[derive(Clone)]
+pub struct CustomerService {
+    pub customer_repo: CustomerRepository,
+    pub staff_service: StaffService,
+}
+
+impl CustomerService {
+    pub async fn update_status(&self, id: i64, active: bool) -> DomainResult<Customer> {
+        let customer = self.customer_repo.update_status(id, active).await?;
+        self.staff_service.bulk_update_status(id, active).await?;
+        Ok(customer)
     }
 }

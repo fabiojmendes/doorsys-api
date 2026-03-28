@@ -1,6 +1,7 @@
-use poem_openapi::{payload::Json, ApiResponse, Object};
-use poem::http::StatusCode;
+use crate::error::DomainError;
 use poem::error::ResponseError;
+use poem::http::StatusCode;
+use poem_openapi::{payload::Json, ApiResponse, Object};
 
 #[derive(Debug, Object)]
 pub struct ErrorResponse {
@@ -21,7 +22,7 @@ pub enum ApiError {
 impl ApiError {
     pub fn from_err<E: std::fmt::Display + std::fmt::Debug>(err: E, status: StatusCode) -> Self {
         let msg = err.to_string();
-        
+
         if status.is_server_error() {
             tracing::error!("Internal Server Error: {:?}", err);
         } else if status.is_client_error() {
@@ -50,6 +51,16 @@ impl ResponseError for ApiError {
     }
 }
 
+impl From<DomainError> for ApiError {
+    fn from(err: DomainError) -> Self {
+        match err {
+            DomainError::NotFound(msg) => ApiError::from_err(msg, StatusCode::NOT_FOUND),
+            DomainError::Validation(msg) => ApiError::from_err(msg, StatusCode::BAD_REQUEST),
+            _ => ApiError::from_err(err, StatusCode::INTERNAL_SERVER_ERROR),
+        }
+    }
+}
+
 impl From<anyhow::Error> for ApiError {
     fn from(err: anyhow::Error) -> Self {
         ApiError::from_err(err, StatusCode::INTERNAL_SERVER_ERROR)
@@ -59,7 +70,9 @@ impl From<anyhow::Error> for ApiError {
 impl From<sqlx::Error> for ApiError {
     fn from(err: sqlx::Error) -> Self {
         match err {
-            sqlx::Error::RowNotFound => ApiError::from_err("Resource not found", StatusCode::NOT_FOUND),
+            sqlx::Error::RowNotFound => {
+                ApiError::from_err("Resource not found", StatusCode::NOT_FOUND)
+            }
             _ => ApiError::from_err(err, StatusCode::INTERNAL_SERVER_ERROR),
         }
     }

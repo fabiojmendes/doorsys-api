@@ -1,4 +1,5 @@
 mod domain;
+mod error;
 mod http;
 mod logging;
 mod mqtt;

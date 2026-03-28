@@ -1,3 +1,4 @@
+use crate::error::{DomainError, DomainResult};
 use chrono::{DateTime, Utc};
 use doorsys_protocol::UserAction;
 use poem_openapi::Object;
@@ -42,7 +43,7 @@ pub struct StaffRepository {
 }
 
 impl StaffRepository {
-    pub async fn create(&self, new_staff: &NewStaff, pin: i32) -> Result<Staff, sqlx::Error> {
+    pub async fn create(&self, new_staff: &NewStaff, pin: i32) -> DomainResult<Staff> {
         sqlx::query_as!(
             Staff,
             r#"insert into staff (customer_id, name, phone, pin, fob) values ($1, $2, $3, $4, $5) returning *"#,
@@ -54,9 +55,10 @@ impl StaffRepository {
         )
         .fetch_one(&self.pool)
         .await
+        .map_err(DomainError::from)
     }
 
-    pub async fn update(&self, id: i64, update_staff: &NewStaff) -> Result<Staff, sqlx::Error> {
+    pub async fn update(&self, id: i64, update_staff: &NewStaff) -> DomainResult<Staff> {
         sqlx::query_as!(
             Staff,
             r#"update staff set name = $1, phone = $2, fob = $3 where id = $4 returning *"#,
@@ -67,9 +69,13 @@ impl StaffRepository {
         )
         .fetch_one(&self.pool)
         .await
+        .map_err(|e| match e {
+            sqlx::Error::RowNotFound => DomainError::NotFound(format!("Staff not found with id: {}", id)),
+            _ => DomainError::from(e),
+        })
     }
 
-    pub async fn update_pin(&self, id: i64, new_pin: i32) -> Result<Staff, sqlx::Error> {
+    pub async fn update_pin(&self, id: i64, new_pin: i32) -> DomainResult<Staff> {
         sqlx::query_as!(
             Staff,
             r#"update staff set pin = $1 where id = $2 returning *"#,
@@ -78,9 +84,13 @@ impl StaffRepository {
         )
         .fetch_one(&self.pool)
         .await
+        .map_err(|e| match e {
+            sqlx::Error::RowNotFound => DomainError::NotFound(format!("Staff not found with id: {}", id)),
+            _ => DomainError::from(e),
+        })
     }
 
-    pub async fn update_status(&self, id: i64, active: bool) -> Result<Staff, sqlx::Error> {
+    pub async fn update_status(&self, id: i64, active: bool) -> DomainResult<Staff> {
         sqlx::query_as!(
             Staff,
             r#"update staff set active = $1 where id = $2 returning *"#,
@@ -89,9 +99,13 @@ impl StaffRepository {
         )
         .fetch_one(&self.pool)
         .await
+        .map_err(|e| match e {
+            sqlx::Error::RowNotFound => DomainError::NotFound(format!("Staff not found with id: {}", id)),
+            _ => DomainError::from(e),
+        })
     }
 
-    pub async fn delete(&self, id: i64) -> Result<Staff, sqlx::Error> {
+    pub async fn delete(&self, id: i64) -> DomainResult<Staff> {
         sqlx::query_as!(
             Staff,
             r#"update staff set active = false, deleted = now() where id = $1 returning *"#,
@@ -99,13 +113,17 @@ impl StaffRepository {
         )
         .fetch_one(&self.pool)
         .await
+        .map_err(|e| match e {
+            sqlx::Error::RowNotFound => DomainError::NotFound(format!("Staff not found with id: {}", id)),
+            _ => DomainError::from(e),
+        })
     }
 
     pub async fn bulk_update_status(
         &self,
         customer_id: i64,
         active: bool,
-    ) -> Result<Vec<Staff>, sqlx::Error> {
+    ) -> DomainResult<Vec<Staff>> {
         sqlx::query_as!(
             Staff,
             r#"update staff set active = $1 where customer_id = $2 and deleted is null returning *"#,
@@ -114,9 +132,10 @@ impl StaffRepository {
         )
         .fetch_all(&self.pool)
         .await
+        .map_err(DomainError::from)
     }
 
-    pub async fn fetch_all(&self, customer_id: i64) -> Result<Vec<Staff>, sqlx::Error> {
+    pub async fn fetch_all(&self, customer_id: i64) -> DomainResult<Vec<Staff>> {
         sqlx::query_as!(
             Staff,
             r#"select * from staff where customer_id = $1 and deleted is null order by name"#,
@@ -124,15 +143,20 @@ impl StaffRepository {
         )
         .fetch_all(&self.pool)
         .await
+        .map_err(DomainError::from)
     }
 
-    pub async fn fetch_one(&self, id: i64) -> Result<Staff, sqlx::Error> {
+    pub async fn fetch_one(&self, id: i64) -> DomainResult<Staff> {
         sqlx::query_as!(Staff, r#"select * from staff where id = $1"#, id)
             .fetch_one(&self.pool)
             .await
+            .map_err(|e| match e {
+                sqlx::Error::RowNotFound => DomainError::NotFound(format!("Staff not found with id: {}", id)),
+                _ => DomainError::from(e),
+            })
     }
 
-    pub async fn fetch_all_codes(&self) -> Result<Vec<Option<i32>>, sqlx::Error> {
+    pub async fn fetch_all_codes(&self) -> DomainResult<Vec<Option<i32>>> {
         sqlx::query_scalar!(
             r#"
             with all_codes(code, active) as (
@@ -144,6 +168,7 @@ impl StaffRepository {
         )
         .fetch_all(&self.pool)
         .await
+        .map_err(DomainError::from)
     }
 }
 
@@ -154,7 +179,7 @@ pub struct StaffService {
 }
 
 impl StaffService {
-    pub async fn create(&self, new_staff: &NewStaff) -> anyhow::Result<Staff> {
+    pub async fn create(&self, new_staff: &NewStaff) -> DomainResult<Staff> {
         let pin = generate_pin();
         let staff = self.staff_repo.create(new_staff, pin).await?;
 
@@ -174,7 +199,7 @@ impl StaffService {
         Ok(staff)
     }
 
-    pub async fn update(&self, id: i64, update_staff: &NewStaff) -> anyhow::Result<Staff> {
+    pub async fn update(&self, id: i64, update_staff: &NewStaff) -> DomainResult<Staff> {
         let old_staff = self.staff_repo.fetch_one(id).await?;
         let staff = self.staff_repo.update(id, update_staff).await?;
 
@@ -192,7 +217,7 @@ impl StaffService {
         Ok(staff)
     }
 
-    pub async fn update_pin(&self, id: i64) -> anyhow::Result<Staff> {
+    pub async fn update_pin(&self, id: i64) -> DomainResult<Staff> {
         let old_staff = self.staff_repo.fetch_one(id).await?;
         let old_pin = old_staff.pin;
         let new_pin = generate_pin();
@@ -209,7 +234,7 @@ impl StaffService {
         Ok(staff)
     }
 
-    pub async fn bulk_update_status(&self, customer_id: i64, active: bool) -> anyhow::Result<()> {
+    pub async fn bulk_update_status(&self, customer_id: i64, active: bool) -> DomainResult<()> {
         let staff_list = self
             .staff_repo
             .bulk_update_status(customer_id, active)
@@ -220,13 +245,13 @@ impl StaffService {
         Ok(())
     }
 
-    pub async fn update_status(&self, id: i64, active: bool) -> anyhow::Result<Staff> {
+    pub async fn update_status(&self, id: i64, active: bool) -> DomainResult<Staff> {
         let staff = self.staff_repo.update_status(id, active).await?;
         self.send_mqtt_message(&staff).await?;
         Ok(staff)
     }
 
-    pub async fn send_mqtt_message(&self, staff: &Staff) -> anyhow::Result<()> {
+    pub async fn send_mqtt_message(&self, staff: &Staff) -> DomainResult<()> {
         let pin_action = match staff.active {
             true => UserAction::Add(staff.pin),
             false => UserAction::Del(staff.pin),
@@ -250,7 +275,7 @@ impl StaffService {
         Ok(())
     }
 
-    pub(crate) async fn delete(&self, id: i64) -> anyhow::Result<Staff> {
+    pub(crate) async fn delete(&self, id: i64) -> DomainResult<Staff> {
         let staff = self.staff_repo.delete(id).await?;
         self.send_mqtt_message(&staff).await?;
         Ok(staff)
