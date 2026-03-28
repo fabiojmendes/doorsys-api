@@ -70,7 +70,9 @@ impl StaffRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(|e| match e {
-            sqlx::Error::RowNotFound => DomainError::NotFound(format!("Staff not found with id: {}", id)),
+            sqlx::Error::RowNotFound => {
+                DomainError::NotFound(format!("Staff not found with id: {}", id))
+            }
             _ => DomainError::from(e),
         })
     }
@@ -85,7 +87,9 @@ impl StaffRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(|e| match e {
-            sqlx::Error::RowNotFound => DomainError::NotFound(format!("Staff not found with id: {}", id)),
+            sqlx::Error::RowNotFound => {
+                DomainError::NotFound(format!("Staff not found with id: {}", id))
+            }
             _ => DomainError::from(e),
         })
     }
@@ -100,7 +104,9 @@ impl StaffRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(|e| match e {
-            sqlx::Error::RowNotFound => DomainError::NotFound(format!("Staff not found with id: {}", id)),
+            sqlx::Error::RowNotFound => {
+                DomainError::NotFound(format!("Staff not found with id: {}", id))
+            }
             _ => DomainError::from(e),
         })
     }
@@ -114,13 +120,16 @@ impl StaffRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(|e| match e {
-            sqlx::Error::RowNotFound => DomainError::NotFound(format!("Staff not found with id: {}", id)),
+            sqlx::Error::RowNotFound => {
+                DomainError::NotFound(format!("Staff not found with id: {}", id))
+            }
             _ => DomainError::from(e),
         })
     }
 
-    pub async fn bulk_update_status(
+    pub async fn bulk_update_status_with_conn(
         &self,
+        executor: impl sqlx::PgExecutor<'_>,
         customer_id: i64,
         active: bool,
     ) -> DomainResult<Vec<Staff>> {
@@ -130,7 +139,7 @@ impl StaffRepository {
             active,
             customer_id,
         )
-        .fetch_all(&self.pool)
+        .fetch_all(executor)
         .await
         .map_err(DomainError::from)
     }
@@ -151,7 +160,9 @@ impl StaffRepository {
             .fetch_one(&self.pool)
             .await
             .map_err(|e| match e {
-                sqlx::Error::RowNotFound => DomainError::NotFound(format!("Staff not found with id: {}", id)),
+                sqlx::Error::RowNotFound => {
+                    DomainError::NotFound(format!("Staff not found with id: {}", id))
+                }
                 _ => DomainError::from(e),
             })
     }
@@ -232,17 +243,6 @@ impl StaffService {
             .publish("doorsys/user", QoS::AtLeastOnce, false, payload)
             .await?;
         Ok(staff)
-    }
-
-    pub async fn bulk_update_status(&self, customer_id: i64, active: bool) -> DomainResult<()> {
-        let staff_list = self
-            .staff_repo
-            .bulk_update_status(customer_id, active)
-            .await?;
-        for staff in staff_list {
-            self.send_mqtt_message(&staff).await?;
-        }
-        Ok(())
     }
 
     pub async fn update_status(&self, id: i64, active: bool) -> DomainResult<Staff> {

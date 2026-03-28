@@ -72,14 +72,19 @@ impl CustomerRepository {
         })
     }
 
-    pub async fn update_status(&self, id: i64, active: bool) -> DomainResult<Customer> {
+    pub async fn update_status_with_conn(
+        &self,
+        executor: impl sqlx::PgExecutor<'_>,
+        id: i64,
+        active: bool,
+    ) -> DomainResult<Customer> {
         sqlx::query_as!(
             Customer,
             r#"update customer set active = $1 where id = $2 returning *"#,
             active,
             id,
         )
-        .fetch_one(&self.pool)
+        .fetch_one(executor)
         .await
         .map_err(|e| match e {
             sqlx::Error::RowNotFound => {
@@ -111,8 +116,28 @@ pub struct CustomerService {
 
 impl CustomerService {
     pub async fn update_status(&self, id: i64, active: bool) -> DomainResult<Customer> {
-        let customer = self.customer_repo.update_status(id, active).await?;
-        self.staff_service.bulk_update_status(id, active).await?;
+        // 1. Start Transaction
+        let mut tx = self.customer_repo.pool.begin().await?;
+
+        // 2. Perform DB operations with the transaction
+        let customer = self
+            .customer_repo
+            .update_status_with_conn(&mut *tx, id, active)
+            .await?;
+        let staff_list = self
+            .staff_service
+            .staff_repo
+            .bulk_update_status_with_conn(&mut *tx, id, active)
+            .await?;
+
+        // 3. Commit
+        tx.commit().await?;
+
+        // 4. Side Effects (only after success)
+        for staff in staff_list {
+            self.staff_service.send_mqtt_message(&staff).await?;
+        }
+
         Ok(customer)
     }
 }
