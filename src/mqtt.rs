@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
 use doorsys_protocol::Audit;
 use rumqttc::{AsyncClient, Event, EventLoop, Packet, Publish, QoS};
@@ -60,13 +60,14 @@ async fn handle_audit_message(entry_repo: &EntryLogRepository, msg: Publish) {
                 net_id.unwrap_or(""),
                 audit
             );
+            let time: SystemTime = audit.timestamp.into();
             match entry_repo
                 .create_with_code(
                     audit.code,
                     &audit.code_type.to_string(),
                     net_id,
                     audit.success,
-                    &audit.timestamp.into(),
+                    &time.into(),
                 )
                 .await
             {
