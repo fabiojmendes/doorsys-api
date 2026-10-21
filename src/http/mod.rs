@@ -134,23 +134,23 @@ pub async fn serve(pool: PgPool, mqtt_client: AsyncClient) -> anyhow::Result<()>
             get(customer_handler::list).post(customer_handler::create),
         )
         .route(
-            "/customers/:id",
+            "/customers/{id}",
             get(customer_handler::get).put(customer_handler::update),
         )
         .route(
-            "/customers/:id/status",
+            "/customers/{id}/status",
             put(customer_handler::update_status),
         )
-        .route("/customers/:id/staff", get(staff_handler::list))
+        .route("/customers/{id}/staff", get(staff_handler::list))
         .route("/staff", post(staff_handler::create))
         .route(
-            "/staff/:id",
+            "/staff/{id}",
             get(staff_handler::get)
                 .put(staff_handler::update)
                 .delete(staff_handler::delete),
         )
-        .route("/staff/:id/pin", post(staff_handler::update_pin))
-        .route("/staff/:id/status", put(staff_handler::update_status))
+        .route("/staff/{id}/pin", post(staff_handler::update_pin))
+        .route("/staff/{id}/status", put(staff_handler::update_status))
         .route("/devices", get(device_handler::list))
         .route("/entry_logs", get(entry_handler::list))
         .route("/admin/bulk", post(staff_handler::bulk_load_codes))
