@@ -476,3 +476,112 @@ async fn mqtt_runtime_records_audits_and_disconnects_cleanly(pool: PgPool) {
         .unwrap()
         .unwrap();
 }
+
+#[sqlx::test]
+async fn constraint_errors_return_actionable_messages(pool: PgPool) {
+    let (state, publisher) = setup(&pool);
+    let customer_id = customer(&state).await;
+    seed_staff(&pool, customer_id, "Alice", 123456, Some(42)).await;
+    let bob = seed_staff(&pool, customer_id, "Bob", 234567, None).await;
+    let app = http::router(state);
+    for (method, path, input, status, message) in [
+        (
+            "POST",
+            "/staff".into(),
+            json!({"customerId":customer_id,"name":"Carol","phone":"123","fob":42}),
+            409,
+            "Fob is already in use by another staff member",
+        ),
+        (
+            "PUT",
+            format!("/staff/{bob}"),
+            json!({"customerId":customer_id,"name":"Bob","phone":"123","fob":42}),
+            409,
+            "Fob is already in use by another staff member",
+        ),
+        (
+            "POST",
+            "/staff".into(),
+            json!({"customerId":customer_id,"name":"Alice","phone":"123"}),
+            409,
+            "A staff member with this name already exists for this customer",
+        ),
+        (
+            "POST",
+            "/customers".into(),
+            json!({"name":"Example","email":"new@example.com"}),
+            409,
+            "A customer with this name already exists",
+        ),
+        (
+            "POST",
+            "/staff".into(),
+            json!({"customerId":-1,"name":"Carol","phone":"123"}),
+            400,
+            "Customer does not exist",
+        ),
+    ] {
+        let response = request(&app, method, &path, Some(input)).await;
+        assert_eq!(
+            response,
+            (status, json!({"code":status,"success":false,"msg":message}))
+        );
+    }
+    assert!(publisher.take().is_empty());
+}
+
+#[sqlx::test]
+async fn database_details_are_logged_and_unknown_constraints_have_safe_messages(pool: PgPool) {
+    use std::io::Write;
+    #[derive(Clone)]
+    struct LogBuffer(Arc<Mutex<Vec<u8>>>);
+    impl Write for LogBuffer {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().unwrap().extend_from_slice(bytes);
+            Ok(bytes.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+    let (state, _) = setup(&pool);
+    let customer_id = customer(&state).await;
+    seed_staff(&pool, customer_id, "Alice", 123456, Some(42)).await;
+    let error = sqlx::query(
+        "insert into staff (customer_id, name, phone, pin, fob) values ($1, 'Bob', '', 234567, 42)",
+    )
+    .bind(customer_id)
+    .execute(&pool)
+    .await
+    .unwrap_err();
+    let buffer = LogBuffer(Arc::new(Mutex::new(Vec::new())));
+    let writer = buffer.clone();
+    let subscriber = tracing_subscriber::fmt()
+        .without_time()
+        .with_ansi(false)
+        .with_max_level(tracing::Level::WARN)
+        .with_writer(move || writer.clone())
+        .finish();
+    let mapped = tracing::subscriber::with_default(subscriber, || AppError::from(error));
+    assert_eq!(
+        mapped.to_string(),
+        "Fob is already in use by another staff member"
+    );
+    let log = String::from_utf8(buffer.0.lock().unwrap().clone()).unwrap();
+    assert!(log.contains("WARN"));
+    assert!(log.contains("staff_fob_key"));
+    assert!(log.contains("duplicate key value violates unique constraint"));
+
+    sqlx::raw_sql("create table test_constraint (value int constraint unfamiliar_constraint unique); insert into test_constraint values (1)")
+        .execute(&pool).await.unwrap();
+    let error = sqlx::query("insert into test_constraint values (1)")
+        .execute(&pool)
+        .await
+        .unwrap_err();
+    let mapped = AppError::from(error);
+    assert!(matches!(mapped, AppError::Conflict(_)));
+    assert_eq!(
+        mapped.to_string(),
+        "Record conflicts with an existing record"
+    );
+}

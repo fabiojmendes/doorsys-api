@@ -48,12 +48,30 @@ impl From<sqlx::Error> for AppError {
         match &error {
             sqlx::Error::RowNotFound => Self::NotFound,
             sqlx::Error::Database(db) if db.is_unique_violation() => {
-                Self::Conflict("Record conflicts with an existing record")
+                tracing::warn!(error = ?error, "Database uniqueness constraint rejected an operation");
+                Self::Conflict(match db.constraint() {
+                    Some("staff_fob_key") => "Fob is already in use by another staff member",
+                    Some("staff_pin_key") => "PIN is already in use by another staff member",
+                    Some("unique_staff_name_customer") => {
+                        "A staff member with this name already exists for this customer"
+                    }
+                    Some("unique_customer_name") => "A customer with this name already exists",
+                    // Renaming mac_addr to net_id did not rename the database constraint.
+                    Some("device_mac_addr_key") => "A device with this network ID already exists",
+                    _ => "Record conflicts with an existing record",
+                })
             }
             sqlx::Error::Database(db) if db.is_foreign_key_violation() => {
-                Self::InvalidInput("Referenced record does not exist")
+                tracing::warn!(error = ?error, "Database reference constraint rejected an operation");
+                Self::InvalidInput(match db.constraint() {
+                    Some("staff_customer_id_fkey") => "Customer does not exist",
+                    Some("entry_log_staff_id_fkey") => "Staff member does not exist",
+                    Some("entry_log_device_id_fkey") => "Device does not exist",
+                    _ => "Referenced record does not exist",
+                })
             }
             sqlx::Error::Database(db) if db.is_check_violation() => {
+                tracing::warn!(error = ?error, "Database validation constraint rejected an operation");
                 Self::InvalidInput("Invalid record values")
             }
             _ => Self::Internal(error.into()),
