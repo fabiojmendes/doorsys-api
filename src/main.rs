@@ -14,19 +14,12 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!("Starting Server");
     tracing::info!(
         "Doorsys api version {}, built for {} by {}.",
-        built_info::PKG_VERSION,
+        built_info::GIT_VERSION.unwrap_or(built_info::PKG_VERSION),
         built_info::TARGET,
         built_info::RUSTC_VERSION
     );
-    if let (Some(version), Some(hash), Some(dirty)) = (
-        built_info::GIT_VERSION,
-        built_info::GIT_COMMIT_HASH_SHORT,
-        built_info::GIT_DIRTY,
-    ) {
-        tracing::info!("Git version: {version} ({hash})");
-        if dirty {
-            tracing::warn!("Repo was dirty");
-        }
+    if let Some(true) = built_info::GIT_DIRTY {
+        tracing::warn!("Repo was dirty");
     }
 
     let pool = PgPoolOptions::new()
