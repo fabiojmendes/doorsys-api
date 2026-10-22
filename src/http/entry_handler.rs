@@ -5,9 +5,10 @@ use axum::{
     Json,
 };
 use chrono::{DateTime, Utc};
+use schemars::JsonSchema;
 use serde::Deserialize;
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Filter {
     start_date: DateTime<Utc>,
