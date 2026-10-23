@@ -2,9 +2,9 @@ use std::{env, fmt};
 
 use tracing::{Event, Level, Subscriber};
 use tracing_subscriber::{
-    fmt::{format::Writer, FmtContext, FormatEvent, FormatFields, FormattedFields},
-    registry::LookupSpan,
     EnvFilter,
+    fmt::{FmtContext, FormatEvent, FormatFields, FormattedFields, format::Writer},
+    registry::LookupSpan,
 };
 
 struct PriorityFormatter;
