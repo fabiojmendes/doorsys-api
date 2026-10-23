@@ -1,9 +1,11 @@
-FROM rust:bookworm AS builder
+FROM rust:trixie AS builder
 WORKDIR /usr/src/doorsys-api
 COPY . .
+RUN echo "$(git status)"
+RUN echo "$(git describe --tags)"
 RUN cargo install --path .
 
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 COPY --from=builder /usr/local/cargo/bin/doorsys-api /usr/local/bin/doorsys-api
 COPY --from=builder /usr/src/doorsys-api/entrypoint.sh /
 
