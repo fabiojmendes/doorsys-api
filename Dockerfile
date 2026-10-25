@@ -1,7 +1,6 @@
 FROM rust:trixie AS builder
 WORKDIR /usr/src/doorsys-api
 COPY . .
-RUN echo "$(git status)"
 RUN echo "$(git describe --tags)"
 RUN cargo install --path .
 
