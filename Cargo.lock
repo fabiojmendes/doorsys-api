@@ -430,7 +430,7 @@ dependencies = [
 
 [[package]]
 name = "doorsys-api"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "aide",
  "anyhow",

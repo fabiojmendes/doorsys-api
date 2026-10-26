@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.3](https://github.com/fabiojmendes/doorsys-api/compare/v0.3.2...v0.3.3) (2026-10-26)
+
+
+### Bug Fixes
+
+* **workflow:** update release workflow ([d4fad1a](https://github.com/fabiojmendes/doorsys-api/commit/d4fad1a45f7f708f4a5496429bdbf4b0923967c9))
+
 ## [0.3.2](https://github.com/fabiojmendes/doorsys-api/compare/v0.3.1...v0.3.2) (2026-10-25)
 
 
