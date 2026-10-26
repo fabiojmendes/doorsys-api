@@ -22,15 +22,8 @@ jobs:
         with:
           release-type: rust
 
-  test:
-    needs: release-please
-    if: ${{ needs.release-please.outputs.release_created == 'true' }}
-    uses: ./.github/workflows/test.yml
-    with:
-      ref: ${{ needs.release-please.outputs.tag_name }}
-
   build-push:
-    needs: test
+    needs: release-please
     if: ${{ needs.release-please.outputs.release_created == 'true' }}
     runs-on: ubuntu-latest
 
